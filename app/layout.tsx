@@ -1,13 +1,20 @@
-import Navbar from "../components/Navbar";
-
-import "./globals.css";
+'use client';
+import { useEffect, useState } from "react";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const [userAddress, setUserAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    const storedAddress = localStorage.getItem("userAddress");
+    if (storedAddress) {
+      setUserAddress(storedAddress);
+    }
+  }, []);
+
   return (
     <html lang="en">
-      <body className="bg-gray-900 text-white">
-        <Navbar />
-        <main className="p-6">{children}</main>
+      <body>
+        {children}
       </body>
     </html>
   );
