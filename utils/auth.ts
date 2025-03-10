@@ -1,20 +1,19 @@
 export async function authenticateWithArConnect() {
-  if (typeof window === "undefined" || !window.arweaveWallet) {
-    alert("Please install ArConnect extension to authenticate.");
-    return null;
-  }
-
   try {
-    await window.arweaveWallet.connect(["ACCESS_ADDRESS"]);
-    const address = await window.arweaveWallet.getActiveAddress();
+    if (window.arweaveWallet) {
+      await window.arweaveWallet.connect(["ACCESS_ADDRESS"]);
+      const address = await window.arweaveWallet.getActiveAddress();
+      
+      localStorage.setItem("userAddress", address); // 📌 Spremi u localStorage
 
-    // Spremamo autentifikaciju u LocalStorage
-    localStorage.setItem("userAddress", address);
-
-    console.log("Authenticated ArConnect Address:", address);
-    return address;
+      return address;
+    } else {
+      alert("Please install ArConnect wallet.");
+      return null;
+    }
   } catch (error) {
-    console.error("ArConnect authentication failed:", error);
+    console.error("Authentication failed:", error);
     return null;
   }
 }
+
