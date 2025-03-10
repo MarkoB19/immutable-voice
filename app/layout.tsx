@@ -1,21 +1,13 @@
-'use client';
-import { useEffect, useState } from "react";
-import { getStoredUserAddress } from "../utils/auth";
+import Navbar from "../components/Navbar";
+
+import "./globals.css";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [userAddress, setUserAddress] = useState<string | null>(null);
-
-  useEffect(() => {
-    const storedAddress = getStoredUserAddress();
-    if (storedAddress) {
-      setUserAddress(storedAddress);
-    }
-  }, []);
-
   return (
     <html lang="en">
-      <body>
-        {children}
+      <body className="bg-gray-900 text-white">
+        <Navbar />
+        <main className="p-6">{children}</main>
       </body>
     </html>
   );
