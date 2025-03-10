@@ -1,7 +1,7 @@
 'use client';
-<<<<<<< HEAD
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { fetchAllDocuments } from "../../utils/arweave";
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import debounce from 'lodash.debounce'; // Ensure this is installed: npm install lodash.debounce
+import { fetchAllDocuments } from '../../utils/arweave';
 
 interface Document {
   id: string;
@@ -15,13 +15,15 @@ export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState<string>("");
+  const [search, setSearch] = useState<string>('');
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(true);
-  const [sortBy, setSortBy] = useState<"title" | "timestamp">("timestamp");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-
+  const [sortBy, setSortBy] = useState<'title' | 'timestamp'>('timestamp');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const DOCS_PER_PAGE = 6;
+
+  // Ref for the sentinel element to observe
+  const observerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     loadDocuments();
@@ -33,87 +35,127 @@ export default function DocumentsPage() {
       setError(null);
       const offset = (page - 1) * DOCS_PER_PAGE;
       const docs = await fetchAllDocuments(offset, DOCS_PER_PAGE);
-      if (page === 1) {
-        setDocuments(docs);
-      } else {
-        setDocuments((prev) => [...prev, ...docs]);
-      }
+      setDocuments((prev) => (page === 1 ? docs : [...prev, ...docs]));
       setHasMore(docs.length === DOCS_PER_PAGE);
     } catch (err) {
-      setError("Failed to load documents. Please try again.");
+      setError('Failed to load documents.');
     } finally {
       setLoading(false);
     }
   }, [page]);
 
-  const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const timeout = setTimeout(() => setSearch(value), 300);
-    return () => clearTimeout(timeout);
-  }, []);
+  const handleSearch = useCallback(
+    debounce((value: string) => {
+      setSearch(value);
+      setPage(1); // Reset to first page on search
+      setDocuments([]); // Clear documents on new search
+    }, 300),
+    []
+  );
 
   const filteredDocs = useMemo(() => {
-    let result = [...documents];
-    result = result.filter(
+    let result = [...documents].filter(
       (doc) =>
         (doc.title?.toLowerCase().includes(search.toLowerCase()) || false) ||
         (doc.description?.toLowerCase().includes(search.toLowerCase()) || false)
     );
-    result.sort((a, b) => {
-      if (sortBy === "title") {
-        return sortOrder === "asc"
-          ? (a.title || "").localeCompare(b.title || "")
-          : (b.title || "").localeCompare(a.title || "");
-      } else {
-        return sortOrder === "asc"
-          ? a.timestamp.localeCompare(b.timestamp)
-          : b.timestamp.localeCompare(a.timestamp);
-      }
-    });
+    result.sort((a, b) =>
+      sortBy === 'title'
+        ? sortOrder === 'asc'
+          ? (a.title || '').localeCompare(b.title || '')
+          : (b.title || '').localeCompare(a.title || '')
+        : sortOrder === 'asc'
+        ? a.timestamp.localeCompare(b.timestamp)
+        : b.timestamp.localeCompare(a.timestamp)
+    );
     return result;
   }, [documents, search, sortBy, sortOrder]);
 
+  // Infinite scroll logic
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setPage((prev) => prev + 1);
+        }
+      },
+      { threshold: 0.1 } // Trigger when 10% of the sentinel is visible
+    );
+
+    const currentObserverRef = observerRef.current;
+    if (currentObserverRef) {
+      observer.observe(currentObserverRef);
+    }
+
+    return () => {
+      if (currentObserverRef) {
+        observer.unobserve(currentObserverRef);
+      }
+    };
+  }, [hasMore, loading]);
+
   return (
-    <div className="flex flex-col items-center min-h-screen bg-gradient-to-b from-gray-50 to-gray-200 p-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-indigo-900 to-black pt-24 pb-12">
       {/* Header Section */}
-      <header className="text-center mb-10">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight sm:text-5xl">
-          All Uploaded Documents
+      <header className="text-center mb-12 px-4">
+        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-white to-indigo-300 animate-fade-in">
+          All Documents
         </h1>
-        <p className="mt-3 text-lg text-gray-600 max-w-2xl">
-          Explore a collection of documents securely stored on Immutable Voice.
+        <p className="mt-4 text-lg md:text-xl text-gray-300 leading-relaxed max-w-2xl mx-auto animate-fade-in-delay">
+          Discover documents securely stored on Immutable Voice.
         </p>
       </header>
 
-      {/* Search and Sorting Section */}
-      <div className="w-full max-w-3xl flex flex-col items-center gap-6 mb-10">
-        <input
-          type="text"
-          placeholder="Search by title or description..."
-          onChange={handleSearch}
-          className="w-full p-4 text-gray-900 bg-white border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-300"
-          aria-label="Search documents"
-        />
-        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+      {/* Search and Sort Controls */}
+      <div className="max-w-4xl mx-auto mb-12 px-4">
+        <div className="relative mb-6">
+          <input
+            type="text"
+            placeholder="Search by title or description..."
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full p-4 pr-12 rounded-full bg-gray-800/80 text-white placeholder-gray-400 border border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-md transition-all duration-300"
+            aria-label="Search documents"
+          />
+          <svg
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <div className="flex items-center gap-2">
-            <label htmlFor="sortBy" className="text-gray-700 font-medium">Sort by:</label>
+            <label htmlFor="sortBy" className="text-gray-300 font-medium">
+              Sort by:
+            </label>
             <select
               id="sortBy"
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "title" | "timestamp")}
-              className="p-2 bg-white border border-gray-300 rounded-lg text-gray-900 shadow-sm focus:ring-2 focus:ring-indigo-500"
+              onChange={(e) => setSortBy(e.target.value as 'title' | 'timestamp')}
+              className="p-3 bg-gray-800/80 border border-gray-700 rounded-full text-white shadow-md focus:ring-2 focus:ring-indigo-500 outline-none transition-all duration-300"
+              aria-label="Sort documents by"
             >
               <option value="title">Title</option>
-              <option value="timestamp">Timestamp</option>
+              <option value="timestamp">Date</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label htmlFor="sortOrder" className="text-gray-700 font-medium">Order:</label>
+            <label htmlFor="sortOrder" className="text-gray-300 font-medium">
+              Order:
+            </label>
             <select
               id="sortOrder"
               value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
-              className="p-2 bg-white border border-gray-300 rounded-lg text-gray-900 shadow-sm focus:ring-2 focus:ring-indigo-500"
+              onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+              className="p-3 bg-gray-800/80 border border-gray-700 rounded-full text-white shadow-md focus:ring-2 focus:ring-indigo-500 outline-none transition-all duration-300"
+              aria-label="Sort order"
             >
               <option value="asc">Ascending</option>
               <option value="desc">Descending</option>
@@ -122,136 +164,92 @@ export default function DocumentsPage() {
         </div>
       </div>
 
-      {/* Document List */}
-      {loading && page === 1 ? (
-        <div className="flex items-center justify-center mt-12">
-          <svg className="animate-spin h-10 w-10 text-indigo-600" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-          <span className="ml-3 text-gray-600 text-lg">Loading documents...</span>
-        </div>
-      ) : error ? (
-        <p className="mt-12 text-red-600 font-medium text-lg animate-pulse">{error}</p>
-      ) : filteredDocs.length > 0 ? (
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 w-full max-w-6xl">
-          {filteredDocs.map((doc) => (
-            <li
-              key={doc.id}
-              className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300"
-            >
-              <h2 className="text-xl font-semibold text-gray-800 line-clamp-1">
-                {doc.title || "Untitled"}
-              </h2>
-              <p className="text-gray-600 mt-2 line-clamp-2">
-                {doc.description || "No description available"}
-              </p>
-              <p className="text-sm text-gray-500 mt-3">
-                Uploaded: {new Date(doc.timestamp).toLocaleDateString()}
-              </p>
-              <div className="mt-4 flex gap-3">
-                <a
-                  href={doc.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-600 font-medium hover:text-indigo-800 transition-colors"
-                  aria-label={`View document ${doc.title}`}
-                >
-                  View Document
-                </a>
-                <button
-                  onClick={() => navigator.clipboard.writeText(doc.url)}
-                  className="text-gray-500 hover:text-indigo-600 transition-colors"
-                  title="Copy URL"
-                >
-                  📋 Copy
-                </button>
-              </div>
-=======
-import { useState, useEffect } from "react";
-import { fetchAllDocuments } from "../../utils/arweave";
+      {/* Documents List */}
+      <div className="max-w-6xl mx-auto px-4">
+        {loading && page === 1 ? (
+          <div className="text-center mt-12">
+            <div className="inline-flex items-center gap-3 text-gray-300 animate-pulse">
+              <svg className="animate-spin h-8 w-8 text-indigo-500" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Loading documents...
+            </div>
+          </div>
+        ) : error ? (
+          <p className="mt-12 text-center text-red-400 font-medium animate-pulse">{error}</p>
+        ) : filteredDocs.length > 0 ? (
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredDocs.map((doc) => (
+              <li
+                key={doc.id}
+                className="bg-gray-800/80 p-6 rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 border border-gray-700"
+              >
+                <h2 className="text-xl font-semibold text-white truncate">
+                  {doc.title || 'Untitled'}
+                </h2>
+                <p className="mt-2 text-gray-400 line-clamp-2">
+                  {doc.description || 'No description available'}
+                </p>
+                <p className="mt-3 text-sm text-gray-500">
+                  Uploaded: {new Date(doc.timestamp).toLocaleDateString()}
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-400 font-medium hover:text-indigo-300 transition-colors"
+                    aria-label={`View document ${doc.title}`}
+                  >
+                    View
+                  </a>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(doc.url)}
+                    className="text-gray-400 hover:text-indigo-400 transition-colors"
+                    aria-label="Copy document URL"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </li>
+            ))}
+            {/* Sentinel for IntersectionObserver */}
+            {hasMore && <div ref={observerRef} />}
+          </ul>
+        ) : (
+          <p className="mt-12 text-center text-gray-400 text-lg">
+            {search ? 'No documents match your search.' : 'No documents available yet.'}
+          </p>
+        )}
 
-export default function DocumentsPage() {
-  const [documents, setDocuments] = useState<{ id: string; url: string; title: string; description: string; timestamp: string }[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [search, setSearch] = useState<string>("");
+        {loading && page > 1 && (
+          <div className="text-center mt-6">
+            <div className="inline-flex items-center gap-2 text-gray-300">
+              <svg className="animate-spin h-6 w-6 text-indigo-500" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Loading more...
+            </div>
+          </div>
+        )}
+      </div>
 
-  useEffect(() => {
-    loadDocuments();
-  }, []);
-
-  const loadDocuments = async () => {
-    setLoading(true);
-    const docs = await fetchAllDocuments();
-    setDocuments(docs);
-    setLoading(false);
-  };
-
-  const filteredDocs = documents.filter(doc =>
-  (doc.title ? doc.title.toLowerCase().includes(search.toLowerCase()) : false) ||
-  (doc.description ? doc.description.toLowerCase().includes(search.toLowerCase()) : false)
-);
-
-
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-3xl font-bold">All Uploaded Documents</h1>
-      <p className="mt-4">Here are all documents uploaded to Immutable Voice.</p>
-
-      <input type="text" placeholder="Search by title or description..."
-        value={search} onChange={(e) => setSearch(e.target.value)}
-        className="mt-4 p-2 border rounded w-1/2" />
-
-      {loading ? (
-        <p className="mt-4">Loading...</p>
-      ) : filteredDocs.length > 0 ? (
-        <ul className="mt-4">
-          {filteredDocs.map((doc) => (
-            <li key={doc.id} className="mt-2">
-              <p className="text-xl font-bold">{doc.title}</p>
-              <p className="text-gray-500">{doc.description}</p>
-              <p className="text-sm text-gray-400">Uploaded on {doc.timestamp}</p>
-              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                View Document
-              </a>
->>>>>>> ee8870ac6feea4d398335c5327e0cf56e46ed5a3
-            </li>
-          ))}
-        </ul>
-      ) : (
-<<<<<<< HEAD
-        <p className="mt-12 text-gray-500 text-lg">
-          {search ? "No documents match your search." : "No documents available yet."}
-        </p>
-      )}
-
-      {/* Load More Button */}
-      {hasMore && !loading && filteredDocs.length > 0 && (
-        <button
-          onClick={() => setPage((prev) => prev + 1)}
-          className="mt-10 px-6 py-3 bg-indigo-600 text-white rounded-xl shadow-md hover:bg-indigo-700 transform hover:scale-105 transition-all duration-300"
-        >
-          Load More
-        </button>
-      )}
-
-      {/* Loading Indicator for Additional Pages */}
-      {loading && page > 1 && (
-        <div className="mt-6 flex items-center justify-center">
-          <svg className="animate-spin h-6 w-6 text-indigo-600" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-            <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-          <span className="ml-2 text-gray-600">Loading more...</span>
-        </div>
-      )}
+      {/* Animations */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 1s ease-out forwards;
+        }
+        .animate-fade-in-delay {
+          animation: fadeIn 1s ease-out 0.5s forwards;
+          opacity: 0;
+        }
+      `}</style>
     </div>
   );
 }
-=======
-        <p className="mt-4 text-red-500">No documents found.</p>
-      )}
-    </div>
-  );
-}
->>>>>>> ee8870ac6feea4d398335c5327e0cf56e46ed5a3
