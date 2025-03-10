@@ -17,3 +17,6 @@ export async function authenticateWithArConnect() {
   }
 }
 
+export function getStoredUserAddress() {
+  return localStorage.getItem("userAddress");
+}
