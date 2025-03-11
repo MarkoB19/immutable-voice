@@ -44,13 +44,14 @@ export default function DocumentsPage() {
     loadDocuments(); // Including loadDocuments in the dependency array
   }, [page, sortBy, sortOrder, loadDocuments]); // Add `loadDocuments` as a dependency
 
+  // Ispravljena verzija handleSearch funkcije
   const handleSearch = useCallback(
     debounce((value: string) => {
       setSearch(value);
       setPage(1); // Reset to first page on search
       setDocuments([]); // Clear documents on new search
     }, 300),
-    [] // Empty dependencies as the function doesn't depend on any external state
+    [setSearch, setPage, setDocuments] // Dodane sve zavisnosti koje funkcija koristi
   );
 
   const filteredDocs = useMemo(() => {
