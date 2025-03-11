@@ -5,7 +5,7 @@ import { authenticateWithArConnect } from '../../utils/auth';
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [userAddress, setUserAddress] = useState<string | null>(null);
+  const [userAddress, setUserAddress] = useState<string>('');
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [keywords, setKeywords] = useState<string>('');
@@ -20,7 +20,9 @@ export default function UploadPage() {
   // Load userAddress from localStorage after mount
   useEffect(() => {
     const storedAddress = localStorage.getItem('userAddress');
-    setUserAddress(storedAddress);
+    if (storedAddress) {
+      setUserAddress(storedAddress);
+    }
   }, []);
 
   // Setup drag and drop handlers
@@ -115,7 +117,7 @@ export default function UploadPage() {
   };
 
   const handleLogout = () => {
-    setUserAddress(null);
+    setUserAddress('');
     localStorage.removeItem('userAddress');
     showNotification('Disconnected from ArConnect');
   };
@@ -199,16 +201,7 @@ export default function UploadPage() {
         <h1 className="text-3xl font-bold text-white mb-2">Upload Document</h1>
         <p className="text-gray-300 mb-6">Securely share your truth with the world, permanently stored on Arweave.</p>
 
-        {userAddress === null ? (
-          <div className="text-center text-gray-300 mb-6 p-4">
-            <div className="flex justify-center">
-              <div className="h-4 w-4 bg-indigo-400 rounded-full mr-1 animate-bounce"></div>
-              <div className="h-4 w-4 bg-indigo-500 rounded-full mr-1 animate-bounce" style={{animationDelay: '0.2s'}}></div>
-              <div className="h-4 w-4 bg-indigo-600 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
-            </div>
-            <p className="mt-2">Loading your session...</p>
-          </div>
-        ) : !userAddress ? (
+        {!userAddress ? (
           <div className="mb-6 p-6 border-2 border-dashed border-gray-600 rounded-lg text-center">
             <svg className="w-16 h-16 mx-auto text-indigo-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
