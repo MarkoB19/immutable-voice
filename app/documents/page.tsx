@@ -25,10 +25,6 @@ export default function DocumentsPage() {
   // Ref for the sentinel element to observe
   const observerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    loadDocuments();
-  }, [page, sortBy, sortOrder]);
-
   const loadDocuments = useCallback(async () => {
     try {
       setLoading(true);
@@ -43,6 +39,10 @@ export default function DocumentsPage() {
       setLoading(false);
     }
   }, [page]);
+
+  useEffect(() => {
+    loadDocuments(); // Including loadDocuments in the dependency array
+  }, [page, sortBy, sortOrder, loadDocuments]);
 
   const handleSearch = useCallback(
     debounce((value: string) => {
