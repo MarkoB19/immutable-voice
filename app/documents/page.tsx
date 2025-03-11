@@ -38,11 +38,11 @@ export default function DocumentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page]); // Ensure `page` is in dependencies
 
   useEffect(() => {
     loadDocuments(); // Including loadDocuments in the dependency array
-  }, [page, sortBy, sortOrder, loadDocuments]);
+  }, [page, sortBy, sortOrder, loadDocuments]); // Add `loadDocuments` as a dependency
 
   const handleSearch = useCallback(
     debounce((value: string) => {
@@ -50,7 +50,7 @@ export default function DocumentsPage() {
       setPage(1); // Reset to first page on search
       setDocuments([]); // Clear documents on new search
     }, 300),
-    []
+    [] // Empty dependencies as the function doesn't depend on any external state
   );
 
   const filteredDocs = useMemo(() => {

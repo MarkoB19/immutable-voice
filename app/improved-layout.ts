@@ -1,16 +1,15 @@
-import Navbar from "../components/Navbar";
-import "./globals.css";
+import React from 'react';
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+const ImprovedLayout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <html lang="en">
-      <body className="bg-gray-900 text-white min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-grow p-6 container mx-auto">{children}</main>
-        <footer className="p-4 text-center text-gray-500 text-sm">
-          Immutable Voice - Secure decentralized document sharing
-        </footer>
-      </body>
-    </html>
+    <div className="layout-container">
+      {children}
+    </div>
   );
 }
+
+export default ImprovedLayout;
